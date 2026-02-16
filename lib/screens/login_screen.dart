@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
     
     final email = _emailController.text.trim();
     final acs = ActionCodeSettings(
-      url: 'https://cobry-temp-check.web.app', // Replace with your actual Firebase URL
+      url: 'https://cobry-temp-check.web.app', // Ensure this matches your Firebase URL
       handleCodeInApp: true,
       iOSBundleId: 'com.cobry.tempCheck',
       androidPackageName: 'com.cobry.tempCheck',
@@ -34,7 +34,6 @@ class _LoginScreenState extends State<LoginScreen> {
         actionCodeSettings: acs,
       );
       
-      // Save email locally to complete login when they click the link
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('emailForSignIn', email);
 
@@ -89,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: "Email Address",
-                    hintText: "anthony.osborn@cobry.co.uk",
+                    hintText: "name@cobry.co.uk",
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -131,6 +130,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ],
+              const SizedBox(height: 25),
+              // --- SPAM DISCLAIMER ---
+              const Text(
+                "Whilst this app is in development your 'magic link' email might go to your junk or spam folder.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontStyle: FontStyle.italic),
+              ),
               const SizedBox(height: 20),
               Center(
                 child: TextButton(

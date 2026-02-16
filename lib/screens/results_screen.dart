@@ -23,70 +23,61 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   List<FlSpot> _clientSpots = [];
   List<FlSpot> _staffSpots = [];
-  double _minX = 0;
-  double _maxX = 0;
-  bool _showHourly = true;
 
   Future<Map<String, double>> _fetchData() async {
-    double clientLatest = 0;
-    double staffLatest = 0;
+    double avgClientHappiness = 0;
+    double avgStaffSatisfaction = 0;
+
+    // Define the 24-hour window
+    final DateTime now = DateTime.now();
+    final DateTime twentyFourHoursAgo = now.subtract(const Duration(hours: 24));
+    final Timestamp startTime = Timestamp.fromDate(twentyFourHoursAgo);
 
     try {
-      // 1. Fetch Client Data (Ordered by time to prevent loops)
+      // 1. Fetch Client Data from last 24hrs
       final clientQuery = await _db
           .collection('feedback_clients')
+          .where('timestamp', isGreaterThanOrEqualTo: startTime)
           .orderBy('timestamp', descending: true)
-          .limit(20)
           .get();
 
       if (clientQuery.docs.isNotEmpty) {
-        final lastDoc = clientQuery.docs.first.data();
-        clientLatest = ((lastDoc['support'] + lastDoc['quality'] + lastDoc['speed']) / 30) * 100;
-
-        _clientSpots = clientQuery.docs
-          .where((doc) => doc.data()['timestamp'] != null)
-          .map((doc) {
-            final d = doc.data();
-            double score = ((d['support'] + d['quality'] + d['speed']) / 30) * 100;
-            return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), score);
-          }).toList();
+        double totalScore = 0;
+        _clientSpots = clientQuery.docs.map((doc) {
+          final d = doc.data();
+          double score = ((d['support'] + d['quality'] + d['speed']) / 30) * 100;
+          totalScore += score;
+          return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), score);
+        }).toList();
         
+        avgClientHappiness = totalScore / clientQuery.docs.length;
         _clientSpots.sort((a, b) => a.x.compareTo(b.x));
       }
 
-      // 2. Fetch Staff Data (Ordered by time to prevent loops)
+      // 2. Fetch Staff Data from last 24hrs
       final staffQuery = await _db
           .collection('feedback_staff')
+          .where('timestamp', isGreaterThanOrEqualTo: startTime)
           .orderBy('timestamp', descending: true)
-          .limit(20)
           .get();
 
       if (staffQuery.docs.isNotEmpty) {
-        final lastDoc = staffQuery.docs.first.data();
-        staffLatest = (lastDoc['feeling_score'] / 10) * 100;
+        double totalScore = 0;
+        _staffSpots = staffQuery.docs.map((doc) {
+          final d = doc.data();
+          double score = (d['feeling_score'] / 10) * 100;
+          totalScore += score;
+          return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), score);
+        }).toList();
 
-        _staffSpots = staffQuery.docs
-          .where((doc) => doc.data()['timestamp'] != null)
-          .map((doc) {
-            final d = doc.data();
-            return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), (d['feeling_score'] / 10) * 100);
-          }).toList();
-        
+        avgStaffSatisfaction = totalScore / staffQuery.docs.length;
         _staffSpots.sort((a, b) => a.x.compareTo(b.x));
-      }
-
-      List<FlSpot> all = [..._clientSpots, ..._staffSpots];
-      if (all.isNotEmpty) {
-        all.sort((a, b) => a.x.compareTo(b.x));
-        _minX = all.first.x;
-        _maxX = all.last.x;
-        if ((_maxX - _minX) > 86400000) _showHourly = false;
       }
     } catch (e) {
       debugPrint("Error fetching results: $e");
     }
 
-    return {'client': clientLatest, 'staff': staffLatest};
+    return {'client': avgClientHappiness, 'staff': avgStaffSatisfaction};
   }
 
   Color _getScoreColor(double score) {
@@ -124,44 +115,41 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 
                 Row(
                   children: [
-                    Expanded(child: _buildKPICard("Client Happiness", scores['client']!)),
+                    Expanded(child: _buildKPICard("Avg. Client Happiness | Last 24hrs", scores['client']!)),
                     const SizedBox(width: 15),
-                    Expanded(child: _buildKPICard("Staff Sentiment", scores['staff']!)),
+                    Expanded(child: _buildKPICard("Avg. Staff Satisfaction | Last 24hrs", scores['staff']!)),
                   ],
                 ),
                 
                 const SizedBox(height: 40),
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Performance Trend", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cobryBlue)),
+                  child: Text("Sentiment Trend", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cobryBlue)),
                 ),
                 const SizedBox(height: 20),
                 
-                SizedBox(height: 250, child: _buildChart()),
+                SizedBox(height: 250, child: _buildAreaChart()),
                 
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildLegendItem("Staff", cobryBlue),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 25),
                     _buildLegendItem("Clients", cobryGreen),
                   ],
                 ),
 
                 const SizedBox(height: 40),
                 
-                // --- UPDATED LOOKER BUTTON (DARK GREY) ---
+                // Looker Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton.icon(
                     onPressed: null, 
                     icon: const Icon(Icons.analytics_outlined, size: 20, color: Colors.white70),
-                    label: const Text(
-                      "Explore these results in Looker (coming soon)",
-                      style: TextStyle(color: Colors.white70),
-                    ),
+                    label: const Text("Explore in Looker (coming soon)", style: TextStyle(color: Colors.white70)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: charcoalGrey,
                       disabledBackgroundColor: charcoalGrey,
@@ -173,6 +161,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 
                 const SizedBox(height: 15),
 
+                // Done Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -202,8 +191,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Row(
       children: [
         Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -220,7 +209,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       ),
       child: Column(
         children: [
-          Text(title, style: const TextStyle(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+          Text(title, style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
           const SizedBox(height: 15),
           Stack(
             alignment: Alignment.center,
@@ -229,13 +218,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 height: 60,
                 width: 60,
                 child: CircularProgressIndicator(
-                  value: percentage / 100,
+                  value: (percentage == 0) ? 0 : percentage / 100,
                   strokeWidth: 8,
                   backgroundColor: Colors.grey.shade100,
                   color: statusColor,
                 ),
               ),
-              Text("${percentage.round()}%", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: statusColor)),
+              Text(percentage == 0 ? "N/A" : "${percentage.round()}%", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: statusColor)),
             ],
           ),
         ],
@@ -243,7 +232,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _buildChart() {
+  Widget _buildAreaChart() {
     return LineChart(
       LineChartData(
         gridData: const FlGridData(show: false),
@@ -255,12 +244,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 final date = DateTime.fromMillisecondsSinceEpoch(value.toInt());
                 return Padding(
                   padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(_showHourly ? DateFormat('HH:mm').format(date) : DateFormat('MM/dd').format(date), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  child: Text(DateFormat('HH:mm').format(date), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
             ),
           ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, meta) => Text("${value.toInt()}%", style: const TextStyle(fontSize: 10)),
+            ),
+          ),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
@@ -269,20 +264,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
           LineChartBarData(
             spots: _clientSpots, 
             isCurved: true, 
-            curveSmoothness: 0.35,
             color: cobryGreen, 
             barWidth: 4, 
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: cobryGreen.withOpacity(0.05)),
+            dotData: const FlDotData(show: true),
+            belowBarData: BarAreaData(show: true, color: cobryGreen.withOpacity(0.1)),
           ),
           LineChartBarData(
             spots: _staffSpots, 
             isCurved: true, 
-            curveSmoothness: 0.35,
             color: cobryBlue, 
             barWidth: 4, 
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: cobryBlue.withOpacity(0.05)),
+            dotData: const FlDotData(show: true),
+            belowBarData: BarAreaData(show: true, color: cobryBlue.withOpacity(0.1)),
           ),
         ],
       ),

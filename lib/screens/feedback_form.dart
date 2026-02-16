@@ -130,6 +130,16 @@ class _FeedbackFormState extends State<FeedbackForm> {
                 ),
                 const SizedBox(height: 10),
                 Text("Logged in as ${_user?.email}", style: const TextStyle(color: Colors.blueGrey)),
+                
+                // --- SPAM DISCLAIMER ---
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    "Whilst this app is in development your 'magic link' email might go to your junk or spam folder.",
+                    style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontStyle: FontStyle.italic),
+                  ),
+                ),
+                
                 const SizedBox(height: 40),
                 
                 if (_userRole == 'staff') ..._buildStaffForm(cobryBlue) else ..._buildClientForm(cobryBlue),
@@ -180,8 +190,6 @@ class _FeedbackFormState extends State<FeedbackForm> {
       const SizedBox(height: 20),
       ..._availableClients.map((client) {
         bool isSelected = _selectedClients[client] ?? false;
-        
-        // Dynamic URL generation for client logos
         final String clientImageUrl = "https://storage.googleapis.com/cobry-public-assets/client-logos/${client.replaceAll(' ', '-').toLowerCase()}.png";
 
         return Container(
@@ -195,11 +203,8 @@ class _FeedbackFormState extends State<FeedbackForm> {
                   child: ClipOval(
                     child: Image.network(
                       clientImageUrl,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => 
-                        const Icon(Icons.business, color: Colors.grey),
+                      width: 40, height: 40, fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.business, color: Colors.grey),
                     ),
                   ),
                 ),
