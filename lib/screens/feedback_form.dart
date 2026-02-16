@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'results_screen.dart'; // Ensure you have created this file!
 
 class FeedbackForm extends StatefulWidget {
   const FeedbackForm({super.key});
@@ -16,12 +17,12 @@ class _FeedbackFormState extends State<FeedbackForm> {
   String? _userRole;
   bool _isLoading = true;
 
-  // Client Ratings
+  // Client Ratings (Default to middle 5)
   double _supportRating = 5;
   double _qualityRating = 5;
   double _speedRating = 5;
   
-  // Staff Sentiment
+  // Staff Sentiment (Default to middle 5)
   double _feelingScore = 5;
   final TextEditingController _commentController = TextEditingController();
 
@@ -57,12 +58,19 @@ class _FeedbackFormState extends State<FeedbackForm> {
       if (mounted) {
         setState(() {
           // If we found the doc, get the role. If not, default to 'client' safely.
-          _userRole = doc.exists ? doc.get('role') : 'client'; 
+          // We check if doc exists to avoid null errors on data access
+          if (doc.exists && doc.data() != null) {
+            final data = doc.data() as Map<String, dynamic>;
+            _userRole = data['role']?.toString().toLowerCase();
+          } else {
+             _userRole = 'client';
+          }
           _isLoading = false;
         });
       }
     } catch (e) {
       // If anything fails, default to showing the client form
+      debugPrint("Error loading role: $e");
       if (mounted) {
         setState(() {
           _userRole = 'client';
@@ -95,22 +103,24 @@ class _FeedbackFormState extends State<FeedbackForm> {
         };
 
     try {
+      // Save to Firestore
       await _db.collection(collection).add(data);
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Feedback Sent!"))
+
+      // SUCCESS! Navigate to the Results Dashboard
+      // pushReplacement ensures the user can't hit "Back" to resubmit the form
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const ResultsScreen()),
       );
-      
-      // Sign out and go back to home
-      await FirebaseAuth.instance.signOut();
-      // Optional: Navigate back or force reload if needed
+
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"))
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error submitting feedback: $e"))
+        );
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -124,6 +134,7 @@ class _FeedbackFormState extends State<FeedbackForm> {
       appBar: AppBar(
         title: const Text("Cobry Temp Check"), 
         foregroundColor: cobryBlue,
+        backgroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -142,30 +153,53 @@ class _FeedbackFormState extends State<FeedbackForm> {
             
             // DYNAMIC UI SWITCHER
             if (_userRole == 'staff') ...[
-              const Text("How are you feeling about work lately?", style: TextStyle(fontSize: 18)),
-              Slider(value: _feelingScore, min: 1, max: 10, divisions: 9, label: _feelingScore.round().toString(), onChanged: (v) => setState(() => _feelingScore = v)),
+              const Text("How are you feeling about work lately?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              _buildSliderLabel("Feeling Score", _feelingScore),
+              Slider(
+                value: _feelingScore, 
+                min: 1, 
+                max: 10, 
+                divisions: 9, 
+                label: _feelingScore.round().toString(),
+                activeColor: cobryBlue,
+                onChanged: (v) => setState(() => _feelingScore = v)
+              ),
+              const Center(child: Text("1 = Struggling   —   10 = Great")),
             ] else ...[
-              _buildRatingSlider("Support", _supportRating, (v) => setState(() => _supportRating = v)),
-              _buildRatingSlider("Quality", _qualityRating, (v) => setState(() => _qualityRating = v)),
-              _buildRatingSlider("Response Speed", _speedRating, (v) => setState(() => _speedRating = v)),
+               const Text("Rate our recent performance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+               const SizedBox(height: 20),
+              _buildRatingSlider("Support Experience", _supportRating, (v) => setState(() => _supportRating = v), cobryBlue),
+              _buildRatingSlider("Quality of Work", _qualityRating, (v) => setState(() => _qualityRating = v), cobryBlue),
+              _buildRatingSlider("Speed of Response", _speedRating, (v) => setState(() => _speedRating = v), cobryBlue),
             ],
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
+            
+            // Optional Comment Box (Available for both)
             TextField(
               controller: _commentController, 
+              maxLines: 3,
               decoration: const InputDecoration(
                 labelText: "Any additional comments?", 
-                border: OutlineInputBorder()
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
               )
             ),
+            
             const SizedBox(height: 40),
+            
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: cobryBlue, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cobryBlue, 
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
                 onPressed: _submitFeedback, 
-                child: const Text("Submit Feedback")
+                child: const Text("Submit Feedback", style: TextStyle(fontSize: 16))
               ),
             ),
           ],
@@ -174,13 +208,35 @@ class _FeedbackFormState extends State<FeedbackForm> {
     );
   }
 
-  Widget _buildRatingSlider(String label, double value, ValueChanged<double> onChanged) {
+  Widget _buildSliderLabel(String label, double value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
+          child: Text(value.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRatingSlider(String label, double value, ValueChanged<double> onChanged, Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Slider(value: value, min: 1, max: 10, divisions: 9, label: value.round().toString(), onChanged: onChanged),
-        const SizedBox(height: 10),
+        const SizedBox(height: 15),
+        _buildSliderLabel(label, value),
+        Slider(
+          value: value, 
+          min: 1, 
+          max: 10, 
+          divisions: 9, 
+          label: value.round().toString(), 
+          activeColor: color,
+          onChanged: onChanged
+        ),
       ],
     );
   }
