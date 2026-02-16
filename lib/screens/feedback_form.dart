@@ -18,13 +18,10 @@ class _FeedbackFormState extends State<FeedbackForm> {
 
   double _feelingScore = 5;
   final TextEditingController _commentController = TextEditingController();
-  List<String> _availableClients = [];
+  
+  List<Map<String, String>> _availableClients = [];
   final Map<String, bool> _selectedClients = {};
   final Map<String, Map<String, double>> _clientProjectRatings = {};
-
-  double _supportRating = 5;
-  double _qualityRating = 5;
-  double _speedRating = 5;
 
   @override
   void initState() {
@@ -41,13 +38,22 @@ class _FeedbackFormState extends State<FeedbackForm> {
   Future<void> _fetchClientsFromFirestore() async {
     try {
       final snapshot = await _db.collection('clients').get();
-      final clients = snapshot.docs.map((doc) => doc.id).toList(); 
+      
+      final clients = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'name': doc.id,
+          'image': data['image']?.toString() ?? '',
+        };
+      }).toList(); 
+
       if (mounted) {
         setState(() {
           _availableClients = clients;
           for (var client in clients) {
-            _selectedClients[client] = false;
-            _clientProjectRatings[client] = {'speed': 5.0, 'quality': 5.0, 'satisfaction': 5.0};
+            String name = client['name']!;
+            _selectedClients[name] = false;
+            _clientProjectRatings[name] = {'speed': 5.0, 'quality': 5.0, 'satisfaction': 5.0};
           }
         });
       }
@@ -84,12 +90,14 @@ class _FeedbackFormState extends State<FeedbackForm> {
       data['feeling_score'] = _feelingScore;
       data['comments'] = _commentController.text;
       Map<String, dynamic> projectFeedback = {};
-      _selectedClients.forEach((client, isSelected) {
-        if (isSelected) projectFeedback[client] = _clientProjectRatings[client];
+      _selectedClients.forEach((name, isSelected) {
+        if (isSelected) projectFeedback[name] = _clientProjectRatings[name];
       });
       data['project_performance'] = projectFeedback;
     } else {
-      data['support'] = _supportRating; data['quality'] = _qualityRating; data['speed'] = _speedRating;
+      data['support'] = 5.0; 
+      data['quality'] = 5.0;
+      data['speed'] = 5.0;
     }
 
     try {
@@ -130,20 +138,8 @@ class _FeedbackFormState extends State<FeedbackForm> {
                 ),
                 const SizedBox(height: 10),
                 Text("Logged in as ${_user?.email}", style: const TextStyle(color: Colors.blueGrey)),
-                
-                // --- SPAM DISCLAIMER ---
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    "Whilst this app is in development your 'magic link' email might go to your junk or spam folder.",
-                    style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontStyle: FontStyle.italic),
-                  ),
-                ),
-                
                 const SizedBox(height: 40),
-                
-                if (_userRole == 'staff') ..._buildStaffForm(cobryBlue) else ..._buildClientForm(cobryBlue),
-                
+                if (_userRole == 'staff') ..._buildStaffForm(cobryBlue) else const Text("Client form loading..."),
                 const SizedBox(height: 40),
                 const Text("Additional Comments", style: TextStyle(fontWeight: FontWeight.bold, color: cobryBlue)),
                 const SizedBox(height: 10),
@@ -181,46 +177,60 @@ class _FeedbackFormState extends State<FeedbackForm> {
 
   List<Widget> _buildStaffForm(Color color) {
     return [
-      Text("How are you feeling about work lately?", 
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text("On a score of 1 - 10 how do you feel about your work in general at the moment?", 
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          ),
+          Text("${_feelingScore.toInt()}", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
       Slider(value: _feelingScore, min: 1, max: 10, divisions: 9, activeColor: color, onChanged: (v) => setState(() => _feelingScore = v)),
       const SizedBox(height: 40),
       Text("Which clients are you working with?", 
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
       const SizedBox(height: 20),
       ..._availableClients.map((client) {
-        bool isSelected = _selectedClients[client] ?? false;
-        final String clientImageUrl = "https://storage.googleapis.com/cobry-public-assets/client-logos/${client.replaceAll(' ', '-').toLowerCase()}.png";
+        String name = client['name']!;
+        String imageUrl = client['image']!;
+        bool isSelected = _selectedClients[name] ?? false;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
           child: Column(
             children: [
               CheckboxListTile(
+                visualDensity: const VisualDensity(vertical: 4), 
                 secondary: CircleAvatar(
+                  radius: 24,
                   backgroundColor: Colors.transparent,
                   child: ClipOval(
-                    child: Image.network(
-                      clientImageUrl,
-                      width: 40, height: 40, fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.business, color: Colors.grey),
-                    ),
+                    child: imageUrl.isNotEmpty 
+                      ? Image.network(
+                          imageUrl,
+                          width: 48, height: 48, fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.business, color: Colors.grey, size: 28),
+                        )
+                      : const Icon(Icons.business, color: Colors.grey, size: 28),
                   ),
                 ),
-                title: Text(client, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 value: isSelected,
                 activeColor: color,
-                onChanged: (bool? value) => setState(() => _selectedClients[client] = value ?? false),
+                onChanged: (bool? value) => setState(() => _selectedClients[name] = value ?? false),
               ),
               if (isSelected) 
                 Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 25),
                   child: Column(
                     children: [
-                      _buildNestedSlider(client, "I think the quality of responses to this client would currently score:", "quality", color),
-                      _buildNestedSlider(client, "I think my speed to acknowledge and respond to this client currently scores:", "speed", color),
-                      _buildNestedSlider(client, "I think this client's satisfaction is about:", "satisfaction", color),
+                      const Divider(),
+                      _buildNestedSlider(name, "I think my quality of response currently scores:", "quality", color),
+                      _buildNestedSlider(name, "I think my speed to acknowledge and respond currently scores:", "speed", color),
+                      _buildNestedSlider(name, "I think this client's satisfaction currently scores:", "satisfaction", color),
                     ],
                   ),
                 ),
@@ -231,42 +241,26 @@ class _FeedbackFormState extends State<FeedbackForm> {
     ];
   }
 
-  List<Widget> _buildClientForm(Color color) {
-    return [
-      _buildRatingSlider("Support Experience", _supportRating, (v) => setState(() => _supportRating = v), color),
-      _buildRatingSlider("Quality of Work", _qualityRating, (v) => setState(() => _qualityRating = v), color),
-      _buildRatingSlider("Speed of Delivery", _speedRating, (v) => setState(() => _speedRating = v), color),
-    ];
-  }
-
-  Widget _buildNestedSlider(String client, String label, String key, Color color) {
+  Widget _buildNestedSlider(String clientName, String label, String key, Color color) {
+    double currentVal = _clientProjectRatings[clientName]![key]!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 15),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+            Text("${currentVal.toInt()}", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
         Slider(
-          value: _clientProjectRatings[client]![key]!,
+          value: currentVal,
           min: 1, max: 10, divisions: 9,
           activeColor: color,
-          onChanged: (v) => setState(() => _clientProjectRatings[client]![key] = v),
+          onChanged: (v) => setState(() => _clientProjectRatings[clientName]![key] = v),
         ),
       ],
-    );
-  }
-
-  Widget _buildRatingSlider(String label, double value, ValueChanged<double> onChanged, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Slider(value: value, min: 1, max: 10, divisions: 9, activeColor: color, onChanged: onChanged),
-        ],
-      ),
     );
   }
 }
