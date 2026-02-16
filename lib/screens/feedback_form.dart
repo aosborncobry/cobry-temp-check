@@ -180,12 +180,29 @@ class _FeedbackFormState extends State<FeedbackForm> {
       const SizedBox(height: 20),
       ..._availableClients.map((client) {
         bool isSelected = _selectedClients[client] ?? false;
+        
+        // Dynamic URL generation for client logos
+        final String clientImageUrl = "https://storage.googleapis.com/cobry-public-assets/client-logos/${client.replaceAll(' ', '-').toLowerCase()}.png";
+
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
           child: Column(
             children: [
               CheckboxListTile(
+                secondary: CircleAvatar(
+                  backgroundColor: Colors.transparent,
+                  child: ClipOval(
+                    child: Image.network(
+                      clientImageUrl,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => 
+                        const Icon(Icons.business, color: Colors.grey),
+                    ),
+                  ),
+                ),
                 title: Text(client, style: const TextStyle(fontWeight: FontWeight.bold)),
                 value: isSelected,
                 activeColor: color,

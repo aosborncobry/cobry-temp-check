@@ -19,6 +19,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   static const Color cobryGreen = Color(0xFF39B54A); 
   static const Color cobryOrange = Color(0xFFFF8C00);
   static const Color cobryRed = Color(0xFFE53935);
+  static const Color charcoalGrey = Color(0xFF424242);
 
   List<FlSpot> _clientSpots = [];
   List<FlSpot> _staffSpots = [];
@@ -31,7 +32,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     double staffLatest = 0;
 
     try {
-      // 1. Fetch Client Data
+      // 1. Fetch Client Data (Ordered by time to prevent loops)
       final clientQuery = await _db
           .collection('feedback_clients')
           .orderBy('timestamp', descending: true)
@@ -50,11 +51,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
             return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), score);
           }).toList();
         
-        // CRITICAL FIX: Sort chronologically to prevent line loops
         _clientSpots.sort((a, b) => a.x.compareTo(b.x));
       }
 
-      // 2. Fetch Staff Data
+      // 2. Fetch Staff Data (Ordered by time to prevent loops)
       final staffQuery = await _db
           .collection('feedback_staff')
           .orderBy('timestamp', descending: true)
@@ -72,11 +72,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             return FlSpot(d['timestamp'].millisecondsSinceEpoch.toDouble(), (d['feeling_score'] / 10) * 100);
           }).toList();
         
-        // CRITICAL FIX: Sort chronologically to prevent line loops
         _staffSpots.sort((a, b) => a.x.compareTo(b.x));
       }
 
-      // Set X-axis bounds
       List<FlSpot> all = [..._clientSpots, ..._staffSpots];
       if (all.isNotEmpty) {
         all.sort((a, b) => a.x.compareTo(b.x));
@@ -124,7 +122,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 Image.asset('assets/cobry_logo.png', height: 50),
                 const SizedBox(height: 30),
                 
-                // KPI Cards
                 Row(
                   children: [
                     Expanded(child: _buildKPICard("Client Happiness", scores['client']!)),
@@ -140,10 +137,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
                 const SizedBox(height: 20),
                 
-                // The Fixed Chart
                 SizedBox(height: 250, child: _buildChart()),
                 
-                // Legend
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -156,25 +151,28 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
                 const SizedBox(height: 40),
                 
-                // Looker Placeholder
+                // --- UPDATED LOOKER BUTTON (DARK GREY) ---
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: OutlinedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: null, 
-                    icon: const Icon(Icons.analytics_outlined),
-                    label: const Text("Explore in Looker (coming soon)"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey,
-                      side: BorderSide(color: Colors.grey.shade300),
+                    icon: const Icon(Icons.analytics_outlined, size: 20, color: Colors.white70),
+                    label: const Text(
+                      "Explore these results in Looker (coming soon)",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: charcoalGrey,
+                      disabledBackgroundColor: charcoalGrey,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 0,
                     ),
                   ),
                 ),
                 
                 const SizedBox(height: 15),
 
-                // Finish Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -271,7 +269,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           LineChartBarData(
             spots: _clientSpots, 
             isCurved: true, 
-            curveSmoothness: 0.35, // Balanced smoothness
+            curveSmoothness: 0.35,
             color: cobryGreen, 
             barWidth: 4, 
             dotData: const FlDotData(show: false),
