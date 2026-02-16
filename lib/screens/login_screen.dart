@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  final String userType; // 'client' or 'staff'
-
+  final String userType;
   const LoginScreen({super.key, required this.userType});
 
   @override
@@ -12,99 +11,131 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final AuthService _auth = AuthService();
+  final _emailController = TextEditingController();
   bool _isLoading = false;
+  bool _linkSent = false;
 
-  Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      _showSnackBar("Please enter an email address", isError: true);
-      return;
-    }
-
+  Future<void> _sendMagicLink() async {
     setState(() => _isLoading = true);
+    
+    final email = _emailController.text.trim();
+    final acs = ActionCodeSettings(
+      url: 'https://cobry-temp-check.web.app', // Replace with your actual Firebase URL
+      handleCodeInApp: true,
+      iOSBundleId: 'com.cobry.tempCheck',
+      androidPackageName: 'com.cobry.tempCheck',
+      androidInstallApp: true,
+      androidMinimumVersion: '12',
+    );
 
     try {
-      // 1. Check if whitelisted AND matches userType (client vs staff)
-      bool isAllowed = await _auth.isEmailWhitelisted(email, widget.userType);
+      await FirebaseAuth.instance.sendSignInLinkToEmail(
+        email: email,
+        actionCodeSettings: acs,
+      );
       
-      if (isAllowed) {
-        // 2. SAVE EMAIL LOCALLY
-        // This is critical for the PWA/Web link to complete the sign-in
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('emailForSignIn', email);
+      // Save email locally to complete login when they click the link
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('emailForSignIn', email);
 
-        // 3. Send the Passwordless link
-        await _auth.sendLoginLink(email);
-        
-        if (!mounted) return;
-        _showSnackBar("Success! Check your inbox for the login link.");
-      } else {
-        if (!mounted) return;
-        _showSnackBar("Email not recognized as ${widget.userType}. Contact support.", isError: true);
-      }
+      setState(() {
+        _linkSent = true;
+      });
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Magic link sent! Check your inbox.")),
+      );
     } catch (e) {
-      _showSnackBar("Error: ${e.toString()}", isError: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.redAccent : const Color(0xFF00529B),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String title = widget.userType == 'staff' ? "Staff Login" : "Client Portal";
-    const Color cobryBlue = Color(0xFF00529B);
+    const cobryBlue = Color(0xFF00529B);
+    const cobryBg = Color(0xFFF4F9FF);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, 
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(30.0),
+      backgroundColor: cobryBg,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 600),
+          padding: const EdgeInsets.all(40.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(title, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cobryBlue)),
-              const SizedBox(height: 10),
-              const Text("To keep things secure and simple, we'll email you a magic login link."),
+              Image.asset('assets/cobry_logo.png', height: 50),
               const SizedBox(height: 40),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: "Work Email Address",
-                  hintText: "email@example.com",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
+              Text(
+                "${widget.userType[0].toUpperCase()}${widget.userType.substring(1)} Login",
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: cobryBlue),
               ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cobryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 10),
+              Text(_linkSent 
+                ? "Check your email! We've sent a login link to ${_emailController.text}."
+                : "Enter your email to receive a secure magic login link."
+              ),
+              const SizedBox(height: 40),
+              if (!_linkSent) ...[
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: "Email Address",
+                    hintText: "anthony.osborn@cobry.co.uk",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15), 
+                      borderSide: BorderSide.none
+                    ),
                   ),
-                  onPressed: _isLoading ? null : _handleLogin,
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white) 
-                    : const Text("Send Magic Link", style: TextStyle(fontSize: 18)),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: cobryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 0,
+                    ),
+                    onPressed: _isLoading ? null : _sendMagicLink,
+                    child: _isLoading 
+                      ? const CircularProgressIndicator(color: Colors.white) 
+                      : const Text("Send Magic Link", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ] else ...[
+                const Center(
+                  child: Icon(Icons.mark_email_read_outlined, size: 80, color: cobryBlue),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => setState(() => _linkSent = false),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    ),
+                    child: const Text("Use a different email"),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context), 
+                  child: const Text("Go Back", style: TextStyle(color: cobryBlue)),
                 ),
               ),
             ],
