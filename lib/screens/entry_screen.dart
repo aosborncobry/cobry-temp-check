@@ -6,71 +6,86 @@ class EntryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Replace with actual Cobry Blue hex if known (e.g., 0xFF003366)
-    const Color cobryPrimary = Color(0xFF00529B); 
+    // Cobry's primary blue color
+    const Color cobryBlue = Color(0xFF00529B);
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Logo Placeholder
-              const FlutterLogo(size: 80), // Replace with Image.asset('assets/cobry_logo.png')
-              const SizedBox(height: 20),
+              // --- LOGO IS ADDED HERE ---
+              Padding(
+                padding: const EdgeInsets.only(bottom: 30.0),
+                child: Image.asset(
+                  'assets/cobry_logo.png',
+                  height: 80, // Adjust height as needed
+                ),
+              ),
+              // --------------------------
+              
               const Text(
-                "Temp Check",
+                "Welcome",
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+                  color: cobryBlue,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                "How are we doing today?",
-                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              const Text(
+                "Please select your role to continue.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
-              const SizedBox(height: 60),
-
-              // Button 1: Client Path
+              const SizedBox(height: 50),
+              
+              // Staff Button
               SizedBox(
-                width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: cobryPrimary,
+                    backgroundColor: cobryBlue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 3,
                   ),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen(userType: 'client')),
-                  ),
-                  child: const Text("I am a Client", style: TextStyle(fontSize: 18)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginScreen(userType: 'staff')),
+                    );
+                  },
+                  child: const Text("I Cobry Staff", style: TextStyle(fontSize: 18)),
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Button 2: Staff Path
+              
+              // Client Button
               SizedBox(
-                width: double.infinity,
                 height: 60,
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: cobryPrimary, width: 2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    foregroundColor: cobryBlue,
+                    side: const BorderSide(color: cobryBlue, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen(userType: 'staff')),
-                  ),
-                  child: const Text(
-                    "I am Cobry Staff",
-                    style: TextStyle(fontSize: 18, color: cobryPrimary),
-                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginScreen(userType: 'client')),
+                    );
+                  },
+                  child: const Text("I am a Cobry Client", style: TextStyle(fontSize: 18)),
                 ),
               ),
             ],

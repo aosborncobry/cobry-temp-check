@@ -1,0 +1,55 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "cobry-temp-check",
+          "appId": "1:754146255835:android:12cba27d2ea7d140767dfe",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "cobry-temp-check",
+          "appId": "1:754146255835:ios:7dfdb054457a73ad767dfe",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "cobry-temp-check",
+          "appId": "1:754146255835:ios:7dfdb054457a73ad767dfe",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "cobry-temp-check",
+          "configurations": {
+            "android": "1:754146255835:android:12cba27d2ea7d140767dfe",
+            "ios": "1:754146255835:ios:7dfdb054457a73ad767dfe",
+            "macos": "1:754146255835:ios:7dfdb054457a73ad767dfe",
+            "web": "1:754146255835:web:8d5e17ab00b829f7767dfe",
+            "windows": "1:754146255835:web:0b47ede27eac7c11767dfe"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

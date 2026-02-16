@@ -32,6 +32,11 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+# Firebase & Flutter build files
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+firebase_options.dart
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +48,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+
+
+# Sensitive credentials
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
